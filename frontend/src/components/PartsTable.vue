@@ -1,9 +1,20 @@
 <script setup>
-import { defineProps } from "vue";
+import { defineProps, computed } from "vue";
 
-// Define props to receive parts
 const props = defineProps({
   parts: Array,
+  filters: Object,
+});
+
+// Compute filtered parts
+const filteredParts = computed(() => {
+  return props.parts.filter((part) => {
+    return (
+      (!props.filters.make || part.make === props.filters.make) &&
+      (!props.filters.model || part.model === props.filters.model) &&
+      (!props.filters.type || part.Type === props.filters.type)
+    );
+  });
 });
 </script>
 
@@ -42,10 +53,10 @@ const props = defineProps({
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(part, index) in props.parts" :key="part.id">
+              <tr v-for="(part, index) in filteredParts" :key="part.id">
                 <td
                   :class="[
-                    index !== props.parts.length - 1
+                    index !== filteredParts.length - 1
                       ? 'border-b border-gray-200'
                       : '',
                     'whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 lg:pl-8',
@@ -55,7 +66,7 @@ const props = defineProps({
                 </td>
                 <td
                   :class="[
-                    index !== props.parts.length - 1
+                    index !== filteredParts.length - 1
                       ? 'border-b border-gray-200'
                       : '',
                     'hidden whitespace-nowrap px-3 py-4 text-sm text-gray-500 sm:table-cell',
@@ -65,7 +76,7 @@ const props = defineProps({
                 </td>
                 <td
                   :class="[
-                    index !== props.parts.length - 1
+                    index !== filteredParts.length - 1
                       ? 'border-b border-gray-200'
                       : '',
                     'hidden whitespace-nowrap px-3 py-4 text-sm text-gray-500 lg:table-cell',
@@ -75,7 +86,7 @@ const props = defineProps({
                 </td>
                 <td
                   :class="[
-                    index !== props.parts.length - 1
+                    index !== filteredParts.length - 1
                       ? 'border-b border-gray-200'
                       : '',
                     'whitespace-nowrap px-3 py-4 text-sm text-gray-500',
@@ -86,6 +97,12 @@ const props = defineProps({
               </tr>
             </tbody>
           </table>
+          <p
+            v-if="filteredParts.length === 0"
+            class="text-gray-500 text-center py-4"
+          >
+            No parts found.
+          </p>
         </div>
       </div>
     </div>

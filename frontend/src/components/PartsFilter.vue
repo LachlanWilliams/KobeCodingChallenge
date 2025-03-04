@@ -1,396 +1,276 @@
 <script setup>
-import { ref } from "vue";
+import { ref, defineProps, defineEmits, watch } from "vue";
+import { ChevronDownIcon, CheckIcon } from "@heroicons/vue/20/solid";
 import {
-  Dialog,
-  DialogPanel,
-  Disclosure,
-  DisclosureButton,
-  DisclosurePanel,
-  Menu,
-  MenuButton,
-  MenuItem,
-  MenuItems,
-  Popover,
-  PopoverButton,
-  PopoverGroup,
-  PopoverPanel,
-  TransitionChild,
-  TransitionRoot,
+  Listbox,
+  ListboxButton,
+  ListboxLabel,
+  ListboxOption,
+  ListboxOptions,
 } from "@headlessui/vue";
-import { XMarkIcon } from "@heroicons/vue/24/outline";
-import { ChevronDownIcon } from "@heroicons/vue/20/solid";
+import api from "../services/api.js"; // Import API
 
-const sortOptions = [
-  { name: "Most Popular", href: "#", current: true },
-  { name: "Best Rating", href: "#", current: false },
-  { name: "Newest", href: "#", current: false },
-];
-const filters = [
-  {
-    id: "category",
-    name: "Category",
-    options: [
-      { value: "new-arrivals", label: "All New Arrivals", checked: false },
-      { value: "tees", label: "Tees", checked: false },
-      { value: "objects", label: "Objects", checked: true },
-    ],
-  },
-  {
-    id: "color",
-    name: "Color",
-    options: [
-      { value: "white", label: "White", checked: false },
-      { value: "beige", label: "Beige", checked: false },
-      { value: "blue", label: "Blue", checked: false },
-    ],
-  },
-  {
-    id: "sizes",
-    name: "Sizes",
-    options: [
-      { value: "s", label: "S", checked: false },
-      { value: "m", label: "M", checked: false },
-      { value: "l", label: "L", checked: false },
-    ],
-  },
-];
-const activeFilters = [{ value: "objects", label: "Objects" }];
+const props = defineProps({
+  makes: Array, // Pass makes from the parent component
+});
 
-const open = ref(false);
+// Emit function
+const emit = defineEmits(["update-filters"]);
+
+// Reactive state
+const models = ref([]);
+const types = ref([]);
+const selectedMake = ref(null);
+const selectedModel = ref(null);
+const selectedType = ref(null);
+
+// Watch for make selection and fetch models
+watch(selectedMake, async (newMake) => {
+  if (newMake) {
+    try {
+      const response = await api.getModels(newMake);
+      models.value = response.data;
+      selectedModel.value = null; // Reset model selection
+      types.value = [];
+      selectedType.value = null;
+    } catch (error) {
+      console.error("Error fetching models:", error);
+      models.value = [];
+    }
+  } else {
+    models.value = [];
+    selectedModel.value = null;
+    types.value = [];
+    selectedType.value = null;
+  }
+  emit("update-filters", {
+    make: selectedMake.value,
+    model: selectedModel.value,
+    type: selectedType.value,
+  });
+});
+
+// Watch for model selection and fetch types
+watch(selectedModel, async (newModel) => {
+  if (selectedMake.value && newModel) {
+    try {
+      const response = await api.getTypes(selectedMake.value, newModel);
+      types.value = response.data;
+      selectedType.value = null;
+    } catch (error) {
+      console.error("Error fetching types:", error);
+      types.value = [];
+    }
+  } else {
+    types.value = [];
+    selectedType.value = null;
+  }
+  emit("update-filters", {
+    make: selectedMake.value,
+    model: selectedModel.value,
+    type: selectedType.value,
+  });
+});
+
+// Watch for type selection
+watch(selectedType, (newType) => {
+  emit("update-filters", {
+    make: selectedMake.value,
+    model: selectedModel.value,
+    type: newType,
+  });
+});
 </script>
 
 <template>
   <div class="bg-white z-40">
-    <!-- Mobile filter dialog -->
-    <TransitionRoot as="template" :show="open">
-      <Dialog class="relative z-40 sm:hidden" @close="open = false">
-        <TransitionChild
-          as="template"
-          enter="transition-opacity ease-linear duration-300"
-          enter-from="opacity-0"
-          enter-to="opacity-100"
-          leave="transition-opacity ease-linear duration-300"
-          leave-from="opacity-100"
-          leave-to="opacity-0"
-        >
-          <div class="fixed inset-0 bg-black/25" />
-        </TransitionChild>
-
-        <div class="fixed inset-0 z-40 flex">
-          <TransitionChild
-            as="template"
-            enter="transition ease-in-out duration-300 transform"
-            enter-from="translate-x-full"
-            enter-to="translate-x-0"
-            leave="transition ease-in-out duration-300 transform"
-            leave-from="translate-x-0"
-            leave-to="translate-x-full"
-          >
-            <DialogPanel
-              class="relative ml-auto flex size-full max-w-xs flex-col overflow-y-auto bg-white py-4 pb-12 shadow-xl"
-            >
-              <div class="flex items-center justify-between px-4">
-                <h2 class="text-lg font-medium text-gray-900">Filters</h2>
-                <button
-                  type="button"
-                  class="-mr-2 flex size-10 items-center justify-center rounded-md bg-white p-2 text-gray-400"
-                  @click="open = false"
-                >
-                  <span class="sr-only">Close menu</span>
-                  <XMarkIcon class="size-6" aria-hidden="true" />
-                </button>
-              </div>
-
-              <!-- Filters -->
-              <form class="mt-4">
-                <Disclosure
-                  as="div"
-                  v-for="section in filters"
-                  :key="section.name"
-                  class="border-t border-gray-200 px-4 py-6"
-                  v-slot="{ open }"
-                >
-                  <h3 class="-mx-2 -my-3 flow-root">
-                    <DisclosureButton
-                      class="flex w-full items-center justify-between bg-white px-2 py-3 text-sm text-gray-400"
-                    >
-                      <span class="font-medium text-gray-900">{{
-                        section.name
-                      }}</span>
-                      <span class="ml-6 flex items-center">
-                        <ChevronDownIcon
-                          :class="[
-                            open ? '-rotate-180' : 'rotate-0',
-                            'size-5 transform',
-                          ]"
-                          aria-hidden="true"
-                        />
-                      </span>
-                    </DisclosureButton>
-                  </h3>
-                  <DisclosurePanel class="pt-6">
-                    <div class="space-y-6">
-                      <div
-                        v-for="(option, optionIdx) in section.options"
-                        :key="option.value"
-                        class="flex gap-3"
-                      >
-                        <div class="flex h-5 shrink-0 items-center">
-                          <div class="group grid size-4 grid-cols-1">
-                            <input
-                              :id="`filter-mobile-${section.id}-${optionIdx}`"
-                              :name="`${section.id}[]`"
-                              :value="option.value"
-                              type="checkbox"
-                              :checked="option.checked"
-                              class="col-start-1 row-start-1 appearance-none rounded border border-gray-300 bg-white checked:border-indigo-600 checked:bg-indigo-600 indeterminate:border-indigo-600 indeterminate:bg-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 disabled:checked:bg-gray-100 forced-colors:appearance-auto"
-                            />
-                            <svg
-                              class="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white group-has-[:disabled]:stroke-gray-950/25"
-                              viewBox="0 0 14 14"
-                              fill="none"
-                            >
-                              <path
-                                class="opacity-0 group-has-[:checked]:opacity-100"
-                                d="M3 8L6 11L11 3.5"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                              />
-                              <path
-                                class="opacity-0 group-has-[:indeterminate]:opacity-100"
-                                d="M3 7H11"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                              />
-                            </svg>
-                          </div>
-                        </div>
-                        <label
-                          :for="`filter-mobile-${section.id}-${optionIdx}`"
-                          class="text-sm text-gray-500"
-                          >{{ option.label }}</label
-                        >
-                      </div>
-                    </div>
-                  </DisclosurePanel>
-                </Disclosure>
-              </form>
-            </DialogPanel>
-          </TransitionChild>
-        </div>
-      </Dialog>
-    </TransitionRoot>
-
     <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
       <h1 class="text-3xl font-bold tracking-tight text-gray-900">
         Vehicle Parts
       </h1>
       <p class="mt-4 max-w-xl text-sm text-gray-700">
-        Using the filters to view different parts.
+        Use the filters to view different parts.
       </p>
     </div>
 
     <!-- Filters -->
     <section aria-labelledby="filter-heading">
       <h2 id="filter-heading" class="sr-only">Filters</h2>
-
       <div class="border-b border-gray-200 bg-white pb-4">
         <div
           class="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8"
         >
-          <Menu as="div" class="relative inline-block text-left">
-            <div>
-              <MenuButton
-                class="group inline-flex justify-center text-sm font-medium text-gray-700 hover:text-gray-900"
+          <!-- Makes list -->
+          <Listbox as="div" v-model="selectedMake">
+            <ListboxLabel class="block text-sm font-medium text-gray-900"
+              >Makes</ListboxLabel
+            >
+            <div class="relative mt-2">
+              <ListboxButton
+                class="grid w-48 cursor-default grid-cols-1 rounded-md bg-white py-1.5 pl-3 pr-2 text-left text-gray-900 outline outline-1 -outline-offset-1 outline-gray-300 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm"
               >
-                Sort
+                <span class="col-start-1 row-start-1 truncate pr-6">
+                  {{ selectedMake ? selectedMake : "Select a make" }}
+                </span>
                 <ChevronDownIcon
-                  class="-mr-1 ml-1 size-5 shrink-0 text-gray-400 group-hover:text-gray-500"
+                  class="col-start-1 row-start-1 size-5 self-center justify-self-end text-gray-500 sm:size-4"
                   aria-hidden="true"
                 />
-              </MenuButton>
-            </div>
+              </ListboxButton>
 
-            <transition
-              enter-active-class="transition ease-out duration-100"
-              enter-from-class="transform opacity-0 scale-95"
-              enter-to-class="transform opacity-100 scale-100"
-              leave-active-class="transition ease-in duration-75"
-              leave-from-class="transform opacity-100 scale-100"
-              leave-to-class="transform opacity-0 scale-95"
-            >
-              <MenuItems
-                class="absolute left-0 z-10 mt-2 w-40 origin-top-left rounded-md bg-white shadow-2xl ring-1 ring-black/5 focus:outline-none"
+              <transition
+                leave-active-class="transition ease-in duration-100"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
               >
-                <div class="py-1">
-                  <MenuItem
-                    v-for="option in sortOptions"
-                    :key="option.name"
-                    v-slot="{ active }"
+                <ListboxOptions
+                  class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
+                >
+                  <ListboxOption
+                    as="template"
+                    v-for="make in makes"
+                    :key="make.id"
+                    :value="make"
                   >
-                    <a
-                      :href="option.href"
+                    <li
+                      class="relative cursor-default select-none py-2 pl-3 pr-9"
                       :class="[
-                        option.current
-                          ? 'font-medium text-gray-900'
-                          : 'text-gray-500',
-                        active ? 'bg-gray-100 outline-none' : '',
-                        'block px-4 py-2 text-sm',
+                        selectedMake === make
+                          ? 'bg-indigo-600 text-white'
+                          : 'text-gray-900',
                       ]"
-                      >{{ option.name }}</a
                     >
-                  </MenuItem>
-                </div>
-              </MenuItems>
-            </transition>
-          </Menu>
-
-          <button
-            type="button"
-            class="inline-block text-sm font-medium text-gray-700 hover:text-gray-900 sm:hidden"
-            @click="open = true"
-          >
-            Filters
-          </button>
-
-          <div class="hidden sm:block">
-            <div class="flow-root">
-              <PopoverGroup
-                class="-mx-4 flex items-center divide-x divide-gray-200"
-              >
-                <Popover
-                  v-for="(section, sectionIdx) in filters"
-                  :key="section.name"
-                  class="relative inline-block px-4 text-left"
-                >
-                  <PopoverButton
-                    class="group inline-flex justify-center text-sm font-medium text-gray-700 hover:text-gray-900"
-                  >
-                    <span>{{ section.name }}</span>
-                    <span
-                      v-if="sectionIdx === 0"
-                      class="ml-1.5 rounded bg-gray-200 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-gray-700"
-                      >1</span
-                    >
-                    <ChevronDownIcon
-                      class="-mr-1 ml-1 size-5 shrink-0 text-gray-400 group-hover:text-gray-500"
-                      aria-hidden="true"
-                    />
-                  </PopoverButton>
-
-                  <transition
-                    enter-active-class="transition ease-out duration-100"
-                    enter-from-class="transform opacity-0 scale-95"
-                    enter-to-class="transform opacity-100 scale-100"
-                    leave-active-class="transition ease-in duration-75"
-                    leave-from-class="transform opacity-100 scale-100"
-                    leave-to-class="transform opacity-0 scale-95"
-                  >
-                    <PopoverPanel
-                      class="absolute right-0 z-10 mt-2 origin-top-right rounded-md bg-white p-4 shadow-2xl ring-1 ring-black/5 focus:outline-none"
-                    >
-                      <form class="space-y-4">
-                        <div
-                          v-for="(option, optionIdx) in section.options"
-                          :key="option.value"
-                          class="flex gap-3"
-                        >
-                          <div class="flex h-5 shrink-0 items-center">
-                            <div class="group grid size-4 grid-cols-1">
-                              <input
-                                :id="`filter-${section.id}-${optionIdx}`"
-                                :name="`${section.id}[]`"
-                                :value="option.value"
-                                type="checkbox"
-                                :checked="option.checked"
-                                class="col-start-1 row-start-1 appearance-none rounded border border-gray-300 bg-white checked:border-indigo-600 checked:bg-indigo-600 indeterminate:border-indigo-600 indeterminate:bg-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 disabled:checked:bg-gray-100 forced-colors:appearance-auto"
-                              />
-                              <svg
-                                class="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white group-has-[:disabled]:stroke-gray-950/25"
-                                viewBox="0 0 14 14"
-                                fill="none"
-                              >
-                                <path
-                                  class="opacity-0 group-has-[:checked]:opacity-100"
-                                  d="M3 8L6 11L11 3.5"
-                                  stroke-width="2"
-                                  stroke-linecap="round"
-                                  stroke-linejoin="round"
-                                />
-                                <path
-                                  class="opacity-0 group-has-[:indeterminate]:opacity-100"
-                                  d="M3 7H11"
-                                  stroke-width="2"
-                                  stroke-linecap="round"
-                                  stroke-linejoin="round"
-                                />
-                              </svg>
-                            </div>
-                          </div>
-                          <label
-                            :for="`filter-${section.id}-${optionIdx}`"
-                            class="whitespace-nowrap pr-6 text-sm font-medium text-gray-900"
-                            >{{ option.label }}</label
-                          >
-                        </div>
-                      </form>
-                    </PopoverPanel>
-                  </transition>
-                </Popover>
-              </PopoverGroup>
+                      <span class="block truncate">{{ make }}</span>
+                      <span
+                        v-if="selectedMake === make"
+                        class="absolute inset-y-0 right-0 flex items-center pr-4"
+                      >
+                        <CheckIcon class="size-5" aria-hidden="true" />
+                      </span>
+                    </li>
+                  </ListboxOption>
+                </ListboxOptions>
+              </transition>
             </div>
-          </div>
-        </div>
-      </div>
+          </Listbox>
 
-      <!-- Active filters -->
-      <div class="bg-gray-100">
-        <div
-          class="mx-auto max-w-7xl px-4 py-3 sm:flex sm:items-center sm:px-6 lg:px-8"
-        >
-          <h3 class="text-sm font-medium text-gray-500">
-            Filters
-            <span class="sr-only">, active</span>
-          </h3>
-
-          <div
-            aria-hidden="true"
-            class="hidden h-5 w-px bg-gray-300 sm:ml-4 sm:block"
-          />
-
-          <div class="mt-2 sm:ml-4 sm:mt-0">
-            <div class="-m-1 flex flex-wrap items-center">
-              <span
-                v-for="activeFilter in activeFilters"
-                :key="activeFilter.value"
-                class="m-1 inline-flex items-center rounded-full border border-gray-200 bg-white py-1.5 pl-3 pr-2 text-sm font-medium text-gray-900"
+          <!-- Models list -->
+          <Listbox as="div" v-model="selectedModel" :disabled="!selectedMake">
+            <ListboxLabel class="block text-sm font-medium text-gray-900"
+              >Models</ListboxLabel
+            >
+            <div class="relative mt-2">
+              <ListboxButton
+                class="grid w-48 cursor-default grid-cols-1 rounded-md py-1.5 pl-3 pr-2 text-left outline outline-1 sm:text-sm"
+                :class="
+                  selectedMake
+                    ? 'bg-white text-gray-900 outline-gray-300'
+                    : 'bg-gray-100 text-gray-500 cursor-not-allowed outline-gray-200'
+                "
               >
-                <span>{{ activeFilter.label }}</span>
-                <button
-                  type="button"
-                  class="ml-1 inline-flex size-4 shrink-0 rounded-full p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-500"
+                <span class="col-start-1 row-start-1 truncate pr-6">
+                  {{ selectedModel ? selectedModel : "Select a model" }}
+                </span>
+                <ChevronDownIcon
+                  class="col-start-1 row-start-1 size-5 self-center justify-self-end text-gray-500 sm:size-4"
+                  aria-hidden="true"
+                />
+              </ListboxButton>
+
+              <transition
+                leave-active-class="transition ease-in duration-100"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
+              >
+                <ListboxOptions
+                  class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
                 >
-                  <span class="sr-only"
-                    >Remove filter for {{ activeFilter.label }}</span
+                  <ListboxOption
+                    as="template"
+                    v-for="model in models"
+                    :key="model.id"
+                    :value="model"
                   >
-                  <svg
-                    class="size-2"
-                    stroke="currentColor"
-                    fill="none"
-                    viewBox="0 0 8 8"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-width="1.5"
-                      d="M1 1l6 6m0-6L1 7"
-                    />
-                  </svg>
-                </button>
-              </span>
+                    <li
+                      class="relative cursor-default select-none py-2 pl-3 pr-9"
+                      :class="[
+                        selectedModel === model
+                          ? 'bg-indigo-600 text-white'
+                          : 'text-gray-900',
+                      ]"
+                    >
+                      <span class="block truncate">{{ model }}</span>
+                      <span
+                        v-if="selectedModel === model"
+                        class="absolute inset-y-0 right-0 flex items-center pr-4"
+                      >
+                        <CheckIcon class="size-5" aria-hidden="true" />
+                      </span>
+                    </li>
+                  </ListboxOption>
+                </ListboxOptions>
+              </transition>
             </div>
-          </div>
+          </Listbox>
+
+          <!-- Types list -->
+          <Listbox as="div" v-model="selectedType" :disabled="!selectedModel">
+            <ListboxLabel class="block text-sm font-medium text-gray-900"
+              >Types</ListboxLabel
+            >
+            <div class="relative mt-2">
+              <ListboxButton
+                class="grid w-48 cursor-default grid-cols-1 rounded-md py-1.5 pl-3 pr-2 text-left outline outline-1 sm:text-sm"
+                :class="
+                  selectedModel
+                    ? 'bg-white text-gray-900 outline-gray-300'
+                    : 'bg-gray-100 text-gray-500 cursor-not-allowed outline-gray-200'
+                "
+              >
+                <span class="col-start-1 row-start-1 truncate pr-6">
+                  {{ selectedType ? selectedType : "Select a type" }}
+                </span>
+                <ChevronDownIcon
+                  class="col-start-1 row-start-1 size-5 self-center justify-self-end text-gray-500 sm:size-4"
+                  aria-hidden="true"
+                />
+              </ListboxButton>
+
+              <transition
+                leave-active-class="transition ease-in duration-100"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
+              >
+                <ListboxOptions
+                  class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
+                >
+                  <ListboxOption
+                    as="template"
+                    v-for="type in types"
+                    :key="type.id"
+                    :value="type"
+                  >
+                    <li
+                      class="relative cursor-default select-none py-2 pl-3 pr-9"
+                      :class="[
+                        selectedType === type
+                          ? 'bg-indigo-600 text-white'
+                          : 'text-gray-900',
+                      ]"
+                    >
+                      <span class="block truncate">{{ type }}</span>
+                      <span
+                        v-if="selectedType === type"
+                        class="absolute inset-y-0 right-0 flex items-center pr-4"
+                      >
+                        <CheckIcon class="size-5" aria-hidden="true" />
+                      </span>
+                    </li>
+                  </ListboxOption>
+                </ListboxOptions>
+              </transition>
+            </div>
+          </Listbox>
         </div>
       </div>
     </section>
