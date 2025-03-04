@@ -24,62 +24,55 @@ const selectedMake = ref(null);
 const selectedModel = ref(null);
 const selectedType = ref(null);
 
-// Watch for make selection and fetch models
+// Watch for make selection
 watch(selectedMake, async (newMake) => {
   if (newMake) {
     try {
       const response = await api.getModels(newMake);
       models.value = response.data;
-      selectedModel.value = null; // Reset model selection
-      types.value = [];
-      selectedType.value = null;
     } catch (error) {
       console.error("Error fetching models:", error);
       models.value = [];
     }
   } else {
-    models.value = [];
+    models.value = []; // Reset models if make is unselected
     selectedModel.value = null;
-    types.value = [];
+    types.value = []; // Reset types
     selectedType.value = null;
   }
-  emit("update-filters", {
-    make: selectedMake.value,
-    model: selectedModel.value,
-    type: selectedType.value,
-  });
+  emitFilters();
 });
 
-// Watch for model selection and fetch types
+// Watch for model selection
 watch(selectedModel, async (newModel) => {
-  if (selectedMake.value && newModel) {
+  if (newModel) {
     try {
       const response = await api.getTypes(selectedMake.value, newModel);
       types.value = response.data;
-      selectedType.value = null;
     } catch (error) {
       console.error("Error fetching types:", error);
       types.value = [];
     }
   } else {
-    types.value = [];
+    types.value = []; // Reset types if model is unselected
     selectedType.value = null;
   }
+  emitFilters();
+});
+
+// Watch for type selection
+watch(selectedType, () => {
+  emitFilters();
+});
+
+// Emit updated filters
+const emitFilters = () => {
   emit("update-filters", {
     make: selectedMake.value,
     model: selectedModel.value,
     type: selectedType.value,
   });
-});
-
-// Watch for type selection
-watch(selectedType, (newType) => {
-  emit("update-filters", {
-    make: selectedMake.value,
-    model: selectedModel.value,
-    type: newType,
-  });
-});
+};
 </script>
 
 <template>
@@ -126,6 +119,13 @@ watch(selectedType, (newType) => {
                 <ListboxOptions
                   class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
                 >
+                  <ListboxOption
+                    v-if="selectedMake"
+                    class="relative cursor-default select-none py-2 pl-3 pr-9"
+                    @click="selectedMake = null"
+                  >
+                    Unselect
+                  </ListboxOption>
                   <ListboxOption
                     as="template"
                     v-for="make in makes"
@@ -186,6 +186,14 @@ watch(selectedType, (newType) => {
                   class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
                 >
                   <ListboxOption
+                    v-if="selectedModel"
+                    class="relative cursor-default select-none py-2 pl-3 pr-9"
+                    @click="selectedModel = null"
+                  >
+                    Unselect
+                  </ListboxOption>
+
+                  <ListboxOption
                     as="template"
                     v-for="model in models"
                     :key="model.id"
@@ -244,6 +252,13 @@ watch(selectedType, (newType) => {
                 <ListboxOptions
                   class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
                 >
+                  <ListboxOption
+                    v-if="selectedType"
+                    class="relative cursor-default select-none py-2 pl-3 pr-9"
+                    @click="selectedType = null"
+                  >
+                    Unselect
+                  </ListboxOption>
                   <ListboxOption
                     as="template"
                     v-for="type in types"
