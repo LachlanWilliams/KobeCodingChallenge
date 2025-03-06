@@ -12,6 +12,7 @@ import api from "../services/api.js"; // Import API
 
 const props = defineProps({
   makes: Array, // Pass makes from the parent component
+  filters: Object,
 });
 
 // Emit function
@@ -23,6 +24,19 @@ const types = ref([]);
 const selectedMake = ref(null);
 const selectedModel = ref(null);
 const selectedType = ref(null);
+
+watch(props.filters, async (newfilters) => {
+  console.log("change filters");
+  if (newfilters) {
+    try {
+      selectedMake.value = props.filters.make;
+      selectedModel.value = props.filters.model;
+      selectedType.value = props.filters.type;
+    } catch (error) {
+      console.log("Error changing filters: ", error);
+    }
+  }
+});
 
 // Watch for make selection
 watch(selectedMake, async (newMake) => {

@@ -30,6 +30,16 @@ const updateFilters = (filters) => {
 </script>
 
 <template>
-  <PartsFilter :makes="makes" @update-filters="updateFilters" class="z-10" />
-  <PartsTable :parts="parts" :filters="selectedFilters" class="z-0" />
+  <PartsFilter
+    :makes="makes"
+    @update-filters="updateFilters"
+    :filters="selectedFilters"
+    class="z-10"
+  />
+  <PartsTable
+    :parts="parts"
+    :filters="selectedFilters"
+    @update-filter="updateFilters"
+    class="z-0"
+  />
 </template>

@@ -1,10 +1,12 @@
 <script setup>
-import { defineProps, computed } from "vue";
+import { defineProps, computed, defineEmits } from "vue";
 
 const props = defineProps({
   parts: Array,
   filters: Object,
 });
+
+const emit = defineEmits(["update-filters"]);
 
 // Compute filtered parts
 const filteredParts = computed(() => {
@@ -16,6 +18,20 @@ const filteredParts = computed(() => {
     );
   });
 });
+
+const emitFilters = (selectedType, selectedModel, selectedMake) => {
+  props.filters.make = selectedMake;
+  props.filters.model = selectedModel;
+  props.filters.type = selectedType;
+
+  console.log(selectedType);
+
+  emit("update-filters", {
+    make: selectedMake,
+    model: selectedModel,
+    type: selectedType,
+  });
+};
 </script>
 
 <template>
@@ -61,6 +77,7 @@ const filteredParts = computed(() => {
                       : '',
                     'whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 lg:pl-8',
                   ]"
+                  @click="emitFilters(null, null, part.make)"
                 >
                   {{ part.make }}
                 </td>
@@ -71,6 +88,7 @@ const filteredParts = computed(() => {
                       : '',
                     'hidden whitespace-nowrap px-3 py-4 text-sm text-gray-500 sm:table-cell',
                   ]"
+                  @click="emitFilters(null, part.model, part.make)"
                 >
                   {{ part.model }}
                 </td>
@@ -81,6 +99,7 @@ const filteredParts = computed(() => {
                       : '',
                     'hidden whitespace-nowrap px-3 py-4 text-sm text-gray-500 lg:table-cell',
                   ]"
+                  @click="emitFilters(part.Type, part.model, part.make)"
                 >
                   {{ part.Type }}
                 </td>
